@@ -535,6 +535,41 @@
         cursor: pointer;
     }
 
+
+
+    .rsvp-field input[type="number"] {
+        width: 100%;
+        padding: 14px 16px;
+        border: 1px solid #e5dec9;
+        border-radius: 6px;
+        background-color: #fbf9f6;
+        font-size: 14px;
+        color: #2b2b2b;
+        outline: none;
+    }
+
+    .rsvp-help {
+        display: block;
+        margin-top: 8px;
+        color: #8c7e6c;
+        font-size: 11px;
+        line-height: 1.5;
+    }
+
+    .rsvp-status {
+        display: none;
+        margin-top: 16px;
+        padding: 12px 14px;
+        border-radius: 6px;
+        font-size: 12px;
+        line-height: 1.5;
+        text-align: center;
+    }
+
+    .rsvp-status.success { display: block; background: #edf7ed; color: #356b35; border: 1px solid #cfe6cf; }
+    .rsvp-status.error { display: block; background: #fff0f0; color: #8a3030; border: 1px solid #efcccc; }
+    .rsvp-btn:disabled { opacity: 0.65; cursor: not-allowed; }
+
     /* ==========================================================================
        RODAPÉ (TOTALMENTE INTEGRADO E COBRINDO AS LATERAIS)
        ========================================================================== */
@@ -905,7 +940,8 @@
                     <small id="valorRaspadinhaTexto" style="display:block; margin-top:8px; color:#8c7e6c; font-size:11px;">Valor total: R$ 0,00</small>
                 </div>
 
-                <button type="submit" class="rsvp-btn">Confirmar Presença</button>
+                <button type="submit" class="rsvp-btn" id="rsvpSubmitBtn">Confirmar Presença</button>
+                <div id="rsvpStatus" class="rsvp-status" role="status" aria-live="polite"></div>
             </form>
         </div>
     </section>
@@ -937,131 +973,162 @@
         </div>
     </section>
     <script>
-        // URL gerada pelo Google Apps Script para salvar na planilha automaticamente
-        const PLANILHA_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxZCpMLCdHLBsXUFpfcQTAAJRiWRZTJsAy2SqFDRWcfi_XUxrfVpGhPYHD-GOBPvF2Ltg/exec';
+        // URL pública da implantação do Google Apps Script. Deve terminar em /exec.
+        const PLANILHA_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbwSH-T_kDA6nKBBTGnwnnN1348LYkv4cgOIetR_B_avUfTLDaofHSx5rBvJ9Ia7Y4pT6Q/exec';
+        const NUMERO_WHATSAPP = '5511975889141';
+        const VALOR_UNITARIO_RASPADINHA = 5;
 
         function updateGuestFields(quantity) {
             const container = document.getElementById('dynamicFields');
             container.innerHTML = '';
-            
-            const totalPeople = parseInt(quantity, 10);
-            
+            const totalPeople = Number.parseInt(quantity, 10) || 1;
+
             for (let i = 2; i <= totalPeople; i++) {
                 const fieldDiv = document.createElement('div');
                 fieldDiv.className = 'rsvp-field extra-name-field';
-                
                 fieldDiv.innerHTML = `
                     <label for="acompanhante_${i}">Nome do Acompanhante ${i - 1}</label>
                     <input type="text" id="acompanhante_${i}" name="acompanhante_${i}" placeholder="Nome completo" required>
                 `;
-                
                 container.appendChild(fieldDiv);
             }
         }
 
         function toggleRaspadinha(valor) {
-            const campoQuantidade = document.getElementById('campoQuantidadeRaspadinha');
-            const inputQuantidade = document.getElementById('quantidadeRaspadinha');
-            const valorTexto = document.getElementById('valorRaspadinhaTexto');
+            const campo = document.getElementById('campoQuantidadeRaspadinha');
+            const input = document.getElementById('quantidadeRaspadinha');
 
             if (valor === 'Sim') {
-                campoQuantidade.style.display = 'block';
-                inputQuantidade.required = true;
-                if (!inputQuantidade.value) inputQuantidade.value = 1;
-                atualizarValorRaspadinha();
+                campo.style.display = 'block';
+                input.required = true;
+                if (!input.value || Number(input.value) < 1) input.value = '1';
             } else {
-                campoQuantidade.style.display = 'none';
-                inputQuantidade.required = false;
-                inputQuantidade.value = '';
-                valorTexto.textContent = 'Valor total: R$ 0,00';
+                campo.style.display = 'none';
+                input.required = false;
+                input.value = '';
             }
+            atualizarValorRaspadinha();
         }
 
         function atualizarValorRaspadinha() {
-            const quantidade = parseInt(document.getElementById('quantidadeRaspadinha').value, 10) || 0;
-            const valorTotal = quantidade * 5;
+            const quantidade = Number.parseInt(document.getElementById('quantidadeRaspadinha').value, 10) || 0;
+            const total = quantidade * VALOR_UNITARIO_RASPADINHA;
             document.getElementById('valorRaspadinhaTexto').textContent =
-                `Valor total: ${valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`;
+                `Valor total: ${total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`;
         }
 
-        document.getElementById('quantidadeRaspadinha').addEventListener('input', atualizarValorRaspadinha);
+        function mostrarStatus(tipo, mensagem) {
+            const status = document.getElementById('rsvpStatus');
+            status.className = `rsvp-status ${tipo}`;
+            status.textContent = mensagem;
+        }
 
-        document.getElementById('rsvpForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const titular = document.getElementById('nome').value.trim();
-            const quantidade = document.getElementById('convidados').value;
-            const participarRaspadinha = document.getElementById('participarRaspadinha').value;
-            const quantidadeRaspadinha = participarRaspadinha === 'Sim'
-                ? parseInt(document.getElementById('quantidadeRaspadinha').value, 10) || 0
-                : 0;
-            const valorRaspadinha = quantidadeRaspadinha * 5;
-            
-            let acompanhantesLista = [];
-            if (quantidade > 1) {
-                for (let i = 2; i <= quantidade; i++) {
-                    const fieldElement = document.getElementById(`acompanhante_${i}`);
-                    if (fieldElement && fieldElement.value.trim() !== "") {
-                        acompanhantesLista.push(fieldElement.value.trim());
-                    }
-                }
-            }
+        function montarMensagemWhatsApp(dados, acompanhantesLista) {
+            let texto = `✨ *Confirmação de Presença no Chá de Casa Nova* ✨
 
-            const acompanhantesTexto = acompanhantesLista.length > 0 ? acompanhantesLista.join(', ') : "Nenhum";
+`;
+            texto += `👤 *Nome:* ${dados.titular}
+`;
+            texto += `👥 *Total de pessoas:* ${dados.quantidade}
+`;
 
-            // 1. PREPARAÇÃO DOS DADOS NO FORMATO CORRETO PARA A PLANILHA
-            const dadosSimplificados = new URLSearchParams();
-            dadosSimplificados.append('titular', titular);
-            dadosSimplificados.append('quantidade', quantidade);
-            dadosSimplificados.append('acompanhantes', acompanhantesTexto);
-            dadosSimplificados.append('participarRaspadinha', participarRaspadinha);
-            dadosSimplificados.append('quantidadeRaspadinha', quantidadeRaspadinha);
-            dadosSimplificados.append('valorRaspadinha', valorRaspadinha.toFixed(2));
-
-            // FORMATAÇÃO DO TEXTO DO WHATSAPP
-            const numeroTelefone = "5511975889141";
-            let textoWhatsApp = `✨ *Confirmação de Presença no Chá de Casa* ✨\n\n`;
-            textoWhatsApp += `👤 *Nome:* ${titular}\n`;
-            textoWhatsApp += `👥 *Total de pessoas:* ${quantidade}\n`;
-            textoWhatsApp += `🎟️ *Participará da raspadinha:* ${participarRaspadinha}\n`;
-
-            if (participarRaspadinha === 'Sim') {
-                textoWhatsApp += `🔢 *Quantidade de raspadinhas:* ${quantidadeRaspadinha}\n`;
-                textoWhatsApp += `💰 *Valor das raspadinhas:* ${valorRaspadinha.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}\n`;
-            }
-            
-            if (acompanhantesLista.length > 0) {
-                textoWhatsApp += `\n📝 *Acompanhantes:*`;
+            if (acompanhantesLista.length) {
+                texto += `
+📝 *Acompanhantes:*`;
                 acompanhantesLista.forEach((nome, index) => {
-                    textoWhatsApp += `\n  ${index + 1}. ${nome}`;
+                    texto += `
+${index + 1}. ${nome}`;
                 });
+                texto += `
+`;
             }
 
-            const textoCodificado = encodeURIComponent(textoWhatsApp);
-
-            try {
-                // Força o navegador a ESPERAR o Google receber os dados antes de redirecionar
-                await fetch(PLANILHA_WEBAPP_URL, {
-                    method: 'POST',
-                    body: dadosSimplificados.toString(),
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded'
-                    },
-                    mode: 'no-cors'
-                });
-                console.log('Envio para a planilha processado com sucesso.');
-            } catch (error) {
-                console.error('Erro na planilha:', error);
-            } finally {
-                // Abre o WhatsApp imediatamente após a resposta do servidor do Google
-                window.location.href = `https://api.whatsapp.com/send?phone=${numeroTelefone}&text=${textoCodificado}`;
+            texto += `
+🎟️ *Participará da raspadinha:* ${dados.participarRaspadinha}
+`;
+            if (dados.participarRaspadinha === 'Sim') {
+                texto += `🔢 *Quantidade de raspadinhas:* ${dados.quantidadeRaspadinha}
+`;
+                texto += `💰 *Valor total:* ${Number(dados.valorRaspadinha).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+`;
             }
+            return texto;
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const quantidadeRaspadinha = document.getElementById('quantidadeRaspadinha');
+            const formulario = document.getElementById('rsvpForm');
+            const botao = document.getElementById('rsvpSubmitBtn');
+
+            quantidadeRaspadinha.addEventListener('input', atualizarValorRaspadinha);
+
+            formulario.addEventListener('submit', async (event) => {
+                event.preventDefault();
+
+                if (!formulario.reportValidity()) return;
+
+                const titular = document.getElementById('nome').value.trim();
+                const quantidade = Number.parseInt(document.getElementById('convidados').value, 10) || 1;
+                const participarRaspadinha = document.getElementById('participarRaspadinha').value;
+                const qtdRaspadinha = participarRaspadinha === 'Sim'
+                    ? Number.parseInt(quantidadeRaspadinha.value, 10) || 0
+                    : 0;
+
+                if (participarRaspadinha === 'Sim' && qtdRaspadinha < 1) {
+                    mostrarStatus('error', 'Informe pelo menos 1 raspadinha.');
+                    quantidadeRaspadinha.focus();
+                    return;
+                }
+
+                const acompanhantesLista = [];
+                for (let i = 2; i <= quantidade; i++) {
+                    const campo = document.getElementById(`acompanhante_${i}`);
+                    if (campo && campo.value.trim()) acompanhantesLista.push(campo.value.trim());
+                }
+
+                const dados = {
+                    titular,
+                    quantidade: String(quantidade),
+                    acompanhantes: acompanhantesLista.length ? acompanhantesLista.join(', ') : 'Nenhum',
+                    participarRaspadinha,
+                    quantidadeRaspadinha: String(qtdRaspadinha),
+                    valorRaspadinha: String(qtdRaspadinha * VALOR_UNITARIO_RASPADINHA)
+                };
+
+                const corpo = new URLSearchParams(dados);
+                const mensagemWhatsApp = montarMensagemWhatsApp(dados, acompanhantesLista);
+                const urlWhatsApp = `https://api.whatsapp.com/send?phone=${NUMERO_WHATSAPP}&text=${encodeURIComponent(mensagemWhatsApp)}`;
+
+                if (!PLANILHA_WEBAPP_URL.startsWith('https://script.google.com/macros/s/') || !PLANILHA_WEBAPP_URL.endsWith('/exec')) {
+                    mostrarStatus('error', 'Configure a URL publicada do Google Apps Script no código.');
+                    console.error('PLANILHA_WEBAPP_URL não configurada:', PLANILHA_WEBAPP_URL);
+                    return;
+                }
+
+                botao.disabled = true;
+                botao.textContent = 'Enviando...';
+                mostrarStatus('success', 'Registrando sua confirmação...');
+
+                try {
+                    await fetch(PLANILHA_WEBAPP_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        body: corpo,
+                        keepalive: true
+                    });
+
+                    mostrarStatus('success', 'Confirmação registrada. Abrindo o WhatsApp...');
+                    setTimeout(() => { window.location.href = urlWhatsApp; }, 350);
+                } catch (erro) {
+                    console.error('Falha ao enviar para a planilha:', erro);
+                    mostrarStatus('error', 'Não foi possível registrar na planilha. Verifique a implantação do Apps Script.');
+                    botao.disabled = false;
+                    botao.textContent = 'Confirmar Presença';
+                }
+            });
         });
     </script>
-</body>
-</html>
 
-    <!-- RODAPÉ -->
     <!-- RODAPÉ -->
     <footer class="site-footer">
         <p style="font-family: 'Alex Brush', cursive; font-size: 38px; margin-bottom: 10px;">Polly & Gabriel</p>
@@ -1275,77 +1342,11 @@
             renderProducts(categoriaAtual);
         }
 
-        function ajustarAcompanhantes() {
-            const qtd = parseInt(document.getElementById('rsvpAcompanhantes').value);
-            const container = document.getElementById('containerAcompanhantes');
-            container.innerHTML = '';
-            for (let i = 1; i <= qtd; i++) {
-                container.innerHTML += `
-                    <div class="rsvp-field">
-                        <label>Nome do Acompanhante ${i}</label>
-                        <input type="text" required placeholder="Nome completo do acompanhante...">
-                    </div>`;
-            }
-        }
-
-        function enviarRsvp(e) {
-            e.preventDefault();
-            alert('Presença confirmada com sucesso! Esperamos por você.');
-            document.getElementById('formRsvp').reset();
-            document.getElementById('containerAcompanhantes').innerHTML = '';
-        }
-
         function abrirMapa(e) { e.preventDefault(); window.open('https://www.google.com/maps/place/Palooza+Eventos+-+Sal%C3%A3o+de+festas+com+piscina/@-23.4919688,-46.4665954,17z/data=!3m1!4b1!4m16!1m9!4m8!1m0!1m6!1m2!1s0x94ce61281313dfbd:0x1017159fa7adce8f!2sPalooza+Eventos+-+Sal%C3%A3o+de+festas+com+piscina,+R.+Frei+Fid%C3%A9lis+Mota,+764+-+Parque+Cruzeiro+do+Sul,+S%C3%A3o+Paulo+-+SP,+08070-130!2m2!1d-46.4617245!2d-23.4919689!3m5!1s0x94ce61281313dfbd:0x1017159fa7adce8f!8m2!3d-23.4919689!4d-46.4617245!16s%2Fg%2F11yfk7d2dl?entry=ttu&g_ep=EgoyMDI2MDYyOC4wIKXMDSoASAFQAw%3D%3D', '_blank'); }
         function abrirAgenda(e) { e.preventDefault(); window.open('https://calendar.google.com/calendar/render?action=TEMPLATE&text=Chá+de+Casa+Nova+-+Polly+e+Gabriel&dates=20270206T160000Z/20270207T010000Z', '_blank'); }
 
         window.onload = () => { renderProducts('todos'); };
 
-        // Função para confirmação de presença integrada com Planilha e WhatsApp
-        function confirmarPresenca(event) {
-            event.preventDefault(); 
-
-            const nomeConvidado = document.getElementById("input-nome").value;
-            const acompanhantes = document.getElementById("input-acompanhantes").value || "Nenhum";
-            
-            const urlPlanilhaGoogle = "https://script.google.com/macros/s/AKfycbyu7q-bt5vXB7sObRMRCz_hLwdYBlnDl7JWT0ZmhEsWqX8qLts5tRzSZg8RydIVBzkN7w/exec"; 
-
-            const dadosFormulario = {
-                nome: nomeConvidado,
-                acompanhantes: acompanhantes,
-                status: "Confirmado"
-            };
-
-            fetch(urlPlanilhaGoogle, {
-                method: "POST",
-                mode: "no-cors", 
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify(dadosFormulario)
-            })
-            .then(() => {
-                console.log("Dados salvos na planilha com sucesso!");
-                enviarMensagemWhatsApp(nomeConvidado, acompanhantes);
-            })
-            .catch((error) => {
-                console.error("Erro ao salvar na planilha:", error);
-                enviarMensagemWhatsApp(nomeConvidado, acompanhantes);
-            });
-        }
-
-        function enviarMensagemWhatsApp(nome, acompanhantes) {
-            const numeroWhatsApp = "5511975889141"; 
-            
-            let textoMensagem = `Olá! Acabei de confirmar minha presença no casamento através do site!\n\n`;
-            textoMensagem += `*Nome:* ${nome}\n`;
-            textoMensagem += `*Acompanhantes:* ${acompanhantes}\n\n`;
-            textoMensagem += `Estamos muito ansiosos por esse dia! ✨`;
-            
-            const textoCodificado = encodeURIComponent(textoMensagem);
-            const urlWhatsApp = `https://api.whatsapp.com/send?phone=${numeroWhatsApp}&text=${textoCodificado}`;
-            
-            window.open(urlWhatsApp, '_blank');
-        }
     </script>
 </body>
 </html>
