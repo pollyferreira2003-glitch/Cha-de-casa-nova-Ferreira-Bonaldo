@@ -509,6 +509,7 @@
     }
 
     .rsvp-field input[type="text"],
+    .rsvp-field input[type="number"],
     .rsvp-field select {
         width: 100%;
         padding: 14px 16px;
@@ -887,6 +888,23 @@
 
                 <div id="dynamicFields" class="dynamic-fields-container"></div>
 
+                <div class="rsvp-field">
+                    <label for="participarRaspadinha">Deseja participar da nossa raspadinha? (R$ 5,00 cada)</label>
+                    <div class="select-wrapper">
+                        <select id="participarRaspadinha" name="participarRaspadinha" onchange="toggleRaspadinha(this.value)" required>
+                            <option value="">Selecione</option>
+                            <option value="Sim">Sim, quero participar</option>
+                            <option value="Não">Não, obrigado(a)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="rsvp-field" id="campoQuantidadeRaspadinha" style="display: none;">
+                    <label for="quantidadeRaspadinha">Quantidade de raspadinhas</label>
+                    <input type="number" id="quantidadeRaspadinha" name="quantidadeRaspadinha" min="1" step="1" placeholder="Ex.: 2">
+                    <small id="valorRaspadinhaTexto" style="display:block; margin-top:8px; color:#8c7e6c; font-size:11px;">Valor total: R$ 0,00</small>
+                </div>
+
                 <button type="submit" class="rsvp-btn">Confirmar Presença</button>
             </form>
         </div>
@@ -941,11 +959,43 @@
             }
         }
 
+        function toggleRaspadinha(valor) {
+            const campoQuantidade = document.getElementById('campoQuantidadeRaspadinha');
+            const inputQuantidade = document.getElementById('quantidadeRaspadinha');
+            const valorTexto = document.getElementById('valorRaspadinhaTexto');
+
+            if (valor === 'Sim') {
+                campoQuantidade.style.display = 'block';
+                inputQuantidade.required = true;
+                if (!inputQuantidade.value) inputQuantidade.value = 1;
+                atualizarValorRaspadinha();
+            } else {
+                campoQuantidade.style.display = 'none';
+                inputQuantidade.required = false;
+                inputQuantidade.value = '';
+                valorTexto.textContent = 'Valor total: R$ 0,00';
+            }
+        }
+
+        function atualizarValorRaspadinha() {
+            const quantidade = parseInt(document.getElementById('quantidadeRaspadinha').value, 10) || 0;
+            const valorTotal = quantidade * 5;
+            document.getElementById('valorRaspadinhaTexto').textContent =
+                `Valor total: ${valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`;
+        }
+
+        document.getElementById('quantidadeRaspadinha').addEventListener('input', atualizarValorRaspadinha);
+
         document.getElementById('rsvpForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            const titular = document.getElementById('nome').value;
+            const titular = document.getElementById('nome').value.trim();
             const quantidade = document.getElementById('convidados').value;
+            const participarRaspadinha = document.getElementById('participarRaspadinha').value;
+            const quantidadeRaspadinha = participarRaspadinha === 'Sim'
+                ? parseInt(document.getElementById('quantidadeRaspadinha').value, 10) || 0
+                : 0;
+            const valorRaspadinha = quantidadeRaspadinha * 5;
             
             let acompanhantesLista = [];
             if (quantidade > 1) {
@@ -964,12 +1014,21 @@
             dadosSimplificados.append('titular', titular);
             dadosSimplificados.append('quantidade', quantidade);
             dadosSimplificados.append('acompanhantes', acompanhantesTexto);
+            dadosSimplificados.append('participarRaspadinha', participarRaspadinha);
+            dadosSimplificados.append('quantidadeRaspadinha', quantidadeRaspadinha);
+            dadosSimplificados.append('valorRaspadinha', valorRaspadinha.toFixed(2));
 
             // FORMATAÇÃO DO TEXTO DO WHATSAPP
             const numeroTelefone = "5511975889141";
             let textoWhatsApp = `✨ *Confirmação de Presença no Chá de Casa* ✨\n\n`;
             textoWhatsApp += `👤 *Nome:* ${titular}\n`;
             textoWhatsApp += `👥 *Total de pessoas:* ${quantidade}\n`;
+            textoWhatsApp += `🎟️ *Participará da raspadinha:* ${participarRaspadinha}\n`;
+
+            if (participarRaspadinha === 'Sim') {
+                textoWhatsApp += `🔢 *Quantidade de raspadinhas:* ${quantidadeRaspadinha}\n`;
+                textoWhatsApp += `💰 *Valor das raspadinhas:* ${valorRaspadinha.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}\n`;
+            }
             
             if (acompanhantesLista.length > 0) {
                 textoWhatsApp += `\n📝 *Acompanhantes:*`;
