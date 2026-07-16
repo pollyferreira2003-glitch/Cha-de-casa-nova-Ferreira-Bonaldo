@@ -1099,6 +1099,12 @@ ${index + 1}. ${nome}`;
                 const mensagemWhatsApp = montarMensagemWhatsApp(dados, acompanhantesLista);
                 const urlWhatsApp = `https://api.whatsapp.com/send?phone=${NUMERO_WHATSAPP}&text=${encodeURIComponent(mensagemWhatsApp)}`;
 
+                if (!PLANILHA_WEBAPP_URL.startsWith('https://script.google.com/macros/s/') || !PLANILHA_WEBAPP_URL.endsWith('/exec')) {
+                    mostrarStatus('error', 'Configure a URL publicada do Google Apps Script no código.');
+                    console.error('PLANILHA_WEBAPP_URL não configurada:', PLANILHA_WEBAPP_URL);
+                    return;
+                }
+
                 botao.disabled = true;
                 botao.textContent = 'Enviando...';
                 mostrarStatus('success', 'Registrando sua confirmação...');
@@ -1334,26 +1340,6 @@ ${index + 1}. ${nome}`;
             atualizarCarrinhoBar();
             closeCartModal();
             renderProducts(categoriaAtual);
-        }
-
-        function ajustarAcompanhantes() {
-            const qtd = parseInt(document.getElementById('rsvpAcompanhantes').value);
-            const container = document.getElementById('containerAcompanhantes');
-            container.innerHTML = '';
-            for (let i = 1; i <= qtd; i++) {
-                container.innerHTML += `
-                    <div class="rsvp-field">
-                        <label>Nome do Acompanhante ${i}</label>
-                        <input type="text" required placeholder="Nome completo do acompanhante...">
-                    </div>`;
-            }
-        }
-
-        function enviarRsvp(e) {
-            e.preventDefault();
-            alert('Presença confirmada com sucesso! Esperamos por você.');
-            document.getElementById('formRsvp').reset();
-            document.getElementById('containerAcompanhantes').innerHTML = '';
         }
 
         function abrirMapa(e) { e.preventDefault(); window.open('https://www.google.com/maps/place/Palooza+Eventos+-+Sal%C3%A3o+de+festas+com+piscina/@-23.4919688,-46.4665954,17z/data=!3m1!4b1!4m16!1m9!4m8!1m0!1m6!1m2!1s0x94ce61281313dfbd:0x1017159fa7adce8f!2sPalooza+Eventos+-+Sal%C3%A3o+de+festas+com+piscina,+R.+Frei+Fid%C3%A9lis+Mota,+764+-+Parque+Cruzeiro+do+Sul,+S%C3%A3o+Paulo+-+SP,+08070-130!2m2!1d-46.4617245!2d-23.4919689!3m5!1s0x94ce61281313dfbd:0x1017159fa7adce8f!8m2!3d-23.4919689!4d-46.4617245!16s%2Fg%2F11yfk7d2dl?entry=ttu&g_ep=EgoyMDI2MDYyOC4wIKXMDSoASAFQAw%3D%3D', '_blank'); }
