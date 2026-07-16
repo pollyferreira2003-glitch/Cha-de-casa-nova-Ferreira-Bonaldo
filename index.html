@@ -972,381 +972,572 @@
             
         </div>
     </section>
-    <script>
-        // URL pública da implantação do Google Apps Script. Deve terminar em /exec.
-        const PLANILHA_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbwSH-T_kDA6nKBBTGnwnnN1348LYkv4cgOIetR_B_avUfTLDaofHSx5rBvJ9Ia7Y4pT6Q/exec';
-        const NUMERO_WHATSAPP = '5511975889141';
-        const VALOR_UNITARIO_RASPADINHA = 5;
+  from pathlib import Path
 
-        function updateGuestFields(quantity) {
-            const container = document.getElementById('dynamicFields');
-            container.innerHTML = '';
-            const totalPeople = Number.parseInt(quantity, 10) || 1;
+replacement = r'''<script>
+    /* ============================================================
+       CONFIGURAÇÕES GERAIS
+       ============================================================ */
+    const PLANILHA_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbwSH-T_kDA6nKBBTGnwnnN1348LYkv4cgOIetR_B_avUfTLDaofHSx5rBvJ9Ia7Y4pT6Q/exec';
+    const NUMERO_WHATSAPP = '5511975889141';
+    const VALOR_UNITARIO_RASPADINHA = 5;
 
-            for (let i = 2; i <= totalPeople; i++) {
-                const fieldDiv = document.createElement('div');
-                fieldDiv.className = 'rsvp-field extra-name-field';
-                fieldDiv.innerHTML = `
-                    <label for="acompanhante_${i}">Nome do Acompanhante ${i - 1}</label>
-                    <input type="text" id="acompanhante_${i}" name="acompanhante_${i}" placeholder="Nome completo" required>
-                `;
-                container.appendChild(fieldDiv);
-            }
-        }
+    /* ============================================================
+       MENU MOBILE
+       ============================================================ */
+    function toggleMenu() {
+        const navbar = document.getElementById('navbar');
+        if (navbar) navbar.classList.toggle('menu-open');
+    }
 
-        function toggleRaspadinha(valor) {
-            const campo = document.getElementById('campoQuantidadeRaspadinha');
-            const input = document.getElementById('quantidadeRaspadinha');
+    function closeMenu() {
+        const navbar = document.getElementById('navbar');
+        if (navbar) navbar.classList.remove('menu-open');
+    }
 
-            if (valor === 'Sim') {
-                campo.style.display = 'block';
-                input.required = true;
-                if (!input.value || Number(input.value) < 1) input.value = '1';
-            } else {
-                campo.style.display = 'none';
-                input.required = false;
-                input.value = '';
-            }
-            atualizarValorRaspadinha();
-        }
+    /* ============================================================
+       CARROSSEL
+       ============================================================ */
+    let currentIndex = 0;
 
-        function atualizarValorRaspadinha() {
-            const quantidade = Number.parseInt(document.getElementById('quantidadeRaspadinha').value, 10) || 0;
-            const total = quantidade * VALOR_UNITARIO_RASPADINHA;
-            document.getElementById('valorRaspadinhaTexto').textContent =
-                `Valor total: ${total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`;
-        }
+    function mudarSlide(direcao = 1) {
+        const track = document.getElementById('carouselTrack');
+        const dots = document.querySelectorAll('#carouselDots .dot');
 
-        function mostrarStatus(tipo, mensagem) {
-            const status = document.getElementById('rsvpStatus');
-            status.className = `rsvp-status ${tipo}`;
-            status.textContent = mensagem;
-        }
+        if (!track) return;
 
-        function montarMensagemWhatsApp(dados, acompanhantesLista) {
-            let texto = `✨ *Confirmação de Presença no Chá de Casa Nova* ✨
+        const totalSlides = track.children.length;
+        if (!totalSlides) return;
 
-`;
-            texto += `👤 *Nome:* ${dados.titular}
-`;
-            texto += `👥 *Total de pessoas:* ${dados.quantidade}
-`;
+        currentIndex += Number(direcao) || 1;
 
-            if (acompanhantesLista.length) {
-                texto += `
-📝 *Acompanhantes:*`;
-                acompanhantesLista.forEach((nome, index) => {
-                    texto += `
-${index + 1}. ${nome}`;
-                });
-                texto += `
-`;
-            }
+        if (currentIndex >= totalSlides) currentIndex = 0;
+        if (currentIndex < 0) currentIndex = totalSlides - 1;
 
-            texto += `
-🎟️ *Participará da raspadinha:* ${dados.participarRaspadinha}
-`;
-            if (dados.participarRaspadinha === 'Sim') {
-                texto += `🔢 *Quantidade de raspadinhas:* ${dados.quantidadeRaspadinha}
-`;
-                texto += `💰 *Valor total:* ${Number(dados.valorRaspadinha).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-`;
-            }
-            return texto;
-        }
+        track.style.transform = `translateX(-${currentIndex * 100}%)`;
 
-        document.addEventListener('DOMContentLoaded', () => {
-            const quantidadeRaspadinha = document.getElementById('quantidadeRaspadinha');
-            const formulario = document.getElementById('rsvpForm');
-            const botao = document.getElementById('rsvpSubmitBtn');
-
-            quantidadeRaspadinha.addEventListener('input', atualizarValorRaspadinha);
-
-            formulario.addEventListener('submit', async (event) => {
-                event.preventDefault();
-
-                if (!formulario.reportValidity()) return;
-
-                const titular = document.getElementById('nome').value.trim();
-                const quantidade = Number.parseInt(document.getElementById('convidados').value, 10) || 1;
-                const participarRaspadinha = document.getElementById('participarRaspadinha').value;
-                const qtdRaspadinha = participarRaspadinha === 'Sim'
-                    ? Number.parseInt(quantidadeRaspadinha.value, 10) || 0
-                    : 0;
-
-                if (participarRaspadinha === 'Sim' && qtdRaspadinha < 1) {
-                    mostrarStatus('error', 'Informe pelo menos 1 raspadinha.');
-                    quantidadeRaspadinha.focus();
-                    return;
-                }
-
-                const acompanhantesLista = [];
-                for (let i = 2; i <= quantidade; i++) {
-                    const campo = document.getElementById(`acompanhante_${i}`);
-                    if (campo && campo.value.trim()) acompanhantesLista.push(campo.value.trim());
-                }
-
-                const dados = {
-                    titular,
-                    quantidade: String(quantidade),
-                    acompanhantes: acompanhantesLista.length ? acompanhantesLista.join(', ') : 'Nenhum',
-                    participarRaspadinha,
-                    quantidadeRaspadinha: String(qtdRaspadinha),
-                    valorRaspadinha: String(qtdRaspadinha * VALOR_UNITARIO_RASPADINHA)
-                };
-
-                const corpo = new URLSearchParams(dados);
-                const mensagemWhatsApp = montarMensagemWhatsApp(dados, acompanhantesLista);
-                const urlWhatsApp = `https://api.whatsapp.com/send?phone=${NUMERO_WHATSAPP}&text=${encodeURIComponent(mensagemWhatsApp)}`;
-
-                if (!PLANILHA_WEBAPP_URL.startsWith('https://script.google.com/macros/s/') || !PLANILHA_WEBAPP_URL.endsWith('/exec')) {
-                    mostrarStatus('error', 'Configure a URL publicada do Google Apps Script no código.');
-                    console.error('PLANILHA_WEBAPP_URL não configurada:', PLANILHA_WEBAPP_URL);
-                    return;
-                }
-
-                botao.disabled = true;
-                botao.textContent = 'Enviando...';
-                mostrarStatus('success', 'Registrando sua confirmação...');
-
-                try {
-                    await fetch(PLANILHA_WEBAPP_URL, {
-                        method: 'POST',
-                        mode: 'no-cors',
-                        body: corpo,
-                        keepalive: true
-                    });
-
-                    mostrarStatus('success', 'Confirmação registrada. Abrindo o WhatsApp...');
-                    setTimeout(() => { window.location.href = urlWhatsApp; }, 350);
-                } catch (erro) {
-                    console.error('Falha ao enviar para a planilha:', erro);
-                    mostrarStatus('error', 'Não foi possível registrar na planilha. Verifique a implantação do Apps Script.');
-                    botao.disabled = false;
-                    botao.textContent = 'Confirmar Presença';
-                }
-            });
+        dots.forEach((dot, index) => {
+            dot.classList.toggle('active', index === currentIndex);
         });
-    </script>
+    }
 
-    <!-- RODAPÉ -->
-    <footer class="site-footer">
-        <p style="font-family: 'Alex Brush', cursive; font-size: 38px; margin-bottom: 10px;">Polly & Gabriel</p>
-        <p style="font-size: 10px; letter-spacing: 2px;">OBRIGADO POR FAZER PARTE DA NOSSA HISTÓRIA!</p>
-    </footer>
+    /* ============================================================
+       LISTA DE PRESENTES
+       ============================================================ */
+    const productsData = [
+        { id: 1, category: 'eletros', title: 'Panela de Arroz', price: 'R$ 223,00', img: 'Panela de arroz.png' },
+        { id: 2, category: 'eletros', title: 'Aspirador de Pó Vertical', price: 'R$ 185,00', img: 'Aspirador de pó.png' },
+        { id: 3, category: 'eletros', title: 'Mixer Vertical', price: 'R$ 142,00', img: 'Mixer.png' },
+        { id: 4, category: 'eletros', title: 'Pipoqueira Branca', price: 'R$ 180,00', img: 'pipoqueira.png' },
+        { id: 5, category: 'eletros', title: 'Panela para Fondue 220V', price: 'R$ 230,00', img: 'Fondue.png' },
+        { id: 6, category: 'eletros', title: 'Batedeira', price: 'R$ 280,00', img: 'Batedeira.png' },
+        { id: 7, category: 'eletros', title: 'Air Fryer', price: 'R$ 560,00', img: 'Air flyer.png' },
+        { id: 8, category: 'eletros', title: 'Purificador de Água', price: 'R$ 677,00', img: 'Purificador de água.png' },
+        { id: 9, category: 'eletros', title: 'Micro-Ondas', price: 'R$ 863,00', img: 'Micro-ondas.png' },
+        { id: 10, category: 'eletros', title: 'Lava-Louça', price: 'R$ 2.800,00', img: 'Lava-louça.png' },
+        { id: 11, category: 'eletros', title: 'Robo Aspirador', price: 'R$ 800,00', img: 'Robo Aspirador.png' },
+        { id: 12, category: 'eletros', title: 'Kit Panela - mimo style', price: 'R$ 800,00', img: 'Kit Panela - mimo style.png' },
+        { id: 13, category: 'eletros', title: 'Cafeteira dolce', price: 'R$ 500,00', img: 'Cafeteira.png' },
+        { id: 14, category: 'eletros', title: 'Liquidificador Philco', price: 'R$ 500,00', img: 'Liquidificador Philco.png' },
+        { id: 15, category: 'eletros', title: 'Churrasqueira', price: 'R$ 500,00', img: 'Churrasqueira.png' },
+        { id: 16, category: 'banheiro', title: 'Jogo de Toalhas 5 Peças', price: 'R$ 146,00', img: 'Jogo de Toalhas 5 Peças 2 Banho 2 Rosto.png' },
+        { id: 17, category: 'banheiro', title: 'Porta Algodão Cotonete', price: 'R$ 34,00', img: 'Porta algodão.png' },
+        { id: 18, category: 'banheiro', title: 'Jogo de Toalha Ondas', price: 'R$ 186,00', img: 'Jogo de Toalha Ondas.png' },
+        { id: 19, category: 'banheiro', title: 'Jogo de Toalhas Karsten', price: 'R$ 285,00', img: 'Jogo de Toalhas Karsten Banhão Gigante.png' },
+        { id: 20, category: 'banheiro', title: 'Tapete de Pedra Diatomita', price: 'R$ 70,00', img: 'Tapete de Pedra Diatomita.png' },
+        { id: 21, category: 'organizacao', title: 'Kit Cabide', price: 'R$ 80,00', img: 'Kit Cabide.png' },
+        { id: 22, category: 'organizacao', title: 'Porta Talheres', price: 'R$ 148,00', img: 'Porta Talheres.png' },
+        { id: 23, category: 'organizacao', title: 'Kit Porta Guardanapo', price: 'R$ 59,90', img: 'Porta papel toalha e guardanapo.png' },
+        { id: 24, category: 'organizacao', title: 'Kit Organizador Multiuso', price: 'R$ 100,00', img: 'Multiuso.png' },
+        { id: 25, category: 'organizacao', title: 'Kit Organizador com Tampa', price: 'R$ 135,00', img: 'Organizador com Tampa.png' },
+        { id: 26, category: 'organizacao', title: 'Fruteira', price: 'R$ 135,00', img: 'Fruteira.png' },
+        { id: 27, category: 'organizacao', title: 'Porta mantimentos bambu', price: 'R$ 50,00', img: 'porta mantimentos bambu.png' },
+        { id: 28, category: 'organizacao', title: 'Porta Utensilios', price: 'R$ 50,00', img: 'Porta Utensilios.png' },
+        { id: 29, category: 'organizacao', title: 'Jogo de 3 Cestos', price: 'R$ 50,00', img: 'Jogo de 3 Cestos.png' },
+        { id: 30, category: 'cozinha', title: 'Pegador', price: 'R$ 40,00', img: 'Pegador.png' },
+        { id: 31, category: 'cozinha', title: 'Conjunto de xícara 80ml', price: 'R$ 70,00', img: 'conjunto de xícara de 80ml.png' },
+        { id: 32, category: 'cozinha', title: 'Tapete kit de cozinha', price: 'R$ 70,00', img: 'Tapete kit de cozinha.png' },
+        { id: 33, category: 'cozinha', title: 'Aparelho de Jantar', price: 'R$ 500,00', img: 'Aparelho de Jantar.png' },
+        { id: 34, category: 'cozinha', title: 'Kit Ramequim', price: 'R$ 50,00', img: 'Kit Ramequim.png' },
+        { id: 35, category: 'cozinha', title: 'Kit Petisqueira', price: 'R$ 50,00', img: 'Kit Petisqueira.png' },
+        { id: 36, category: 'cozinha', title: 'Kit Coqueleira', price: 'R$ 70,00', img: 'Kit Coqueleira.png' },
+        { id: 37, category: 'cozinha', title: 'Conjunto de Bowls', price: 'R$ 100,00', img: 'Conjunto de Bowls.png' },
+        { id: 38, category: 'cozinha', title: 'Marinex Assadeiras', price: 'R$ 100,00', img: 'Marinex Conjunto de Assadeiras.png' },
+        { id: 39, category: 'cozinha', title: 'Conjunto de Xicaras', price: 'R$ 80,00', img: 'Conjunto de Xicaras.png' },
+        { id: 40, category: 'cozinha', title: 'Jogo de Facas', price: 'R$ 180,00', img: 'Jogo de Facas.png' },
+        { id: 41, category: 'sala', title: 'Fronha para Almofada', price: 'R$ 50,00', img: 'Fronha para Sofa.png' },
+        { id: 42, category: 'sala', title: 'Manta Para Sofa', price: 'R$ 50,00', img: 'Manta Para Sofa.png' },
+        { id: 43, category: 'sala', title: 'Kit Porta retrato', price: 'R$ 100,00', img: 'Porta retrato.png' }
+    ];
 
-    <!-- LÓGICA DO JAVASCRIPT COMPLETAMENTE ATUALIZADA E UNIFICADA -->
-    <script>
-        // Variável única global para o controle do Carrossel do Espaço
-        let currentIndex = 0;
+    let carrinho = [];
+    let categoriaAtual = 'todos';
+    let limiteVisivel = 6;
 
-        // Função de movimentação do Carrossel (Manual e Automática)
-        function mudarSlide(direcao) {
-            const track = document.getElementById('carouselTrack');
-            const dots = document.querySelectorAll('#carouselDots .dot');
-            
-            if (!track) return;
+    function converterPreco(preco) {
+        return Number(
+            preco
+                .replace('R$', '')
+                .replace(/\./g, '')
+                .replace(',', '.')
+                .trim()
+        ) || 0;
+    }
 
-            const totalSlides = track.children.length;
+    function renderProducts(categoryFilter = 'todos') {
+        const grid = document.getElementById('productsGrid');
+        const counter = document.getElementById('itemsCounter');
+        const viewMoreBtn = document.getElementById('viewMoreBtn');
 
-            // Atualiza a posição atual baseado no parâmetro passado
-            if (typeof direcao === 'number') {
-                currentIndex += direcao;
-            } else {
-                currentIndex++; // Movimentação automática padrão (avanço)
-            }
+        if (!grid) return;
 
-            // Se passar da última foto, volta para a primeira
-            if (currentIndex >= totalSlides) {
-                currentIndex = 0;
-            }
-            // Se voltar antes da primeira, vai para a última
-            if (currentIndex < 0) {
-                currentIndex = totalSlides - 1;
-            }
+        grid.innerHTML = '';
 
-            // Move a esteira horizontalmente de forma limpa (100% por slide)
-            track.style.transform = `translateX(-${currentIndex * 100}%)`;
+        const filtered = categoryFilter === 'todos'
+            ? productsData
+            : productsData.filter(product => product.category === categoryFilter);
 
-            // Atualiza as bolinhas indicadoras abaixo do carrossel
-            if (dots.length > 0) {
-                dots.forEach(dot => dot.classList.remove('active'));
-                if (dots[currentIndex]) {
-                    dots[currentIndex].classList.add('active');
+        if (counter) {
+            counter.textContent = `${filtered.length} itens disponíveis`;
+        }
+
+        const mostrarTodos =
+            categoryFilter === 'banheiro' ||
+            categoryFilter === 'sala' ||
+            limiteVisivel >= filtered.length;
+
+        const exibidos = mostrarTodos
+            ? filtered
+            : filtered.slice(0, limiteVisivel);
+
+        exibidos.forEach(product => {
+            const card = document.createElement('div');
+            const selecionado = carrinho.some(item => item.id === product.id);
+
+            card.className = `product-card${selecionado ? ' selected' : ''}`;
+
+            card.innerHTML = `
+                <div class="product-img-container">
+                    <img src="${product.img}" alt="${product.title}">
+                </div>
+                <span class="product-category">${product.category}</span>
+                <h3 class="product-title">${product.title}</h3>
+                <p class="product-price">${product.price}</p>
+            `;
+
+            card.addEventListener('click', () => {
+                const index = carrinho.findIndex(item => item.id === product.id);
+
+                if (index >= 0) {
+                    carrinho.splice(index, 1);
+                    card.classList.remove('selected');
+                } else {
+                    carrinho.push({
+                        id: product.id,
+                        title: product.title,
+                        valor: converterPreco(product.price)
+                    });
+                    card.classList.add('selected');
                 }
-            }
-        }
 
-        // Funções de Controle do Menu Hambúrguer Móvel
-        function toggleMenu() {
-            const navbar = document.getElementById('navbar');
-            navbar.classList.toggle('menu-open');
-        }
-        function closeMenu() {
-            const navbar = document.getElementById('navbar');
-            navbar.classList.remove('menu-open');
-        }
-
-        // Banco de Dados Nativo de Produtos
-        const productsData = [
-            { id: 1, category: 'eletros', title: 'Panela de Arroz', price: 'R$ 223,00', img: 'Panela de arroz.png' },
-            { id: 2, category: 'eletros', title: 'Aspirador de Pó Vertical', price: 'R$ 185,00', img: 'Aspirador de pó.png' },
-            { id: 3, category: 'eletros', title: 'Mixer Vertical', price: 'R$ 142,00', img: 'Mixer.png' },
-            { id: 4, category: 'eletros', title: 'Pipoqueira Branca', price: 'R$ 180,00', img: 'pipoqueira.png' },
-            { id: 5, category: 'eletros', title: 'Panela para Fondue 220V', price: 'R$ 230,00', img: 'Fondue.png' },
-            { id: 6, category: 'eletros', title: 'Batedeira', price: 'R$ 280,00', img: 'Batedeira.png' },
-            { id: 7, category: 'eletros', title: 'Air Fryer', price: 'R$ 560,00', img: 'Air flyer.png' },
-            { id: 8, category: 'eletros', title: 'Purificador de Água', price: 'R$ 677,00', img: 'Purificador de água.png' },
-            { id: 9, category: 'eletros', title: 'Micro-Ondas', price: 'R$ 863,00', img: 'Micro-ondas.png' },
-            { id: 10, category: 'eletros', title: 'Lava-Louça', price: 'R$ 2.800,00', img: 'Lava-louça.png' },
-            { id: 11, category: 'eletros', title: 'Robo Aspirador', price: 'R$ 800,00', img: 'Robo Aspirador.png' },
-            { id: 12, category: 'eletros', title: 'Kit Panela - mimo style', price: 'R$ 800,00', img: 'Kit Panela - mimo style.png' },
-            { id: 13, category: 'eletros', title: 'Cafeteira dolce', price: 'R$ 500,00', img: 'Cafeteira.png'},
-            { id: 14, category: 'eletros', title: 'Liquidificador Philco', price: 'R$ 500,00', img: 'Liquidificador Philco.png'},
-            { id: 15, category: 'eletros', title: 'Churrasqueira', price: 'R$ 500,00', img: 'Churrasqueira.png' },
-            { id: 16, category: 'banheiro', title: 'Jogo de Toalhas 5 Peças', price: 'R$ 146,00', img: 'Jogo de Toalhas 5 Peças 2 Banho 2 Rosto.png' },
-            { id: 17, category: 'banheiro', title: 'Porta Algodão Cotonete', price: 'R$ 34,00', img: 'Porta algodão.png' },
-            { id: 18, category: 'banheiro', title: 'Jogo de Toalha Ondas', price: 'R$ 186,00', img: 'Jogo de Toalha Ondas.png' },
-            { id: 19, category: 'banheiro', title: 'Jogo de Toalhas Karsten', price: 'R$ 285,00', img: 'Jogo de Toalhas Karsten Banhão Gigante.png' },
-            { id: 20, category: 'banheiro', title: 'Tapete de Pedra Diatomita', price: 'R$ 70,00', img: 'Tapete de Pedra Diatomita.png' },
-            { id: 21, category: 'organizacao', title: 'Kit Cabide', price: 'R$ 80,00', img: 'Kit Cabide.png' },
-            { id: 22, category: 'organizacao', title: 'Porta Talheres', price: 'R$ 148,00', img: 'Porta Talheres.png' },
-            { id: 23, category: 'organizacao', title: 'Kit Porta Guardanapo', price: 'R$ 59,90', img: 'Porta papel toalha e guardanapo.png' },
-            { id: 24, category: 'organizacao', title: 'Kit Organizador Multiuso', price: 'R$ 100,00', img: 'Multiuso.png' },
-            { id: 25, category: 'organizacao', title: 'Ki Organizador com Tampa', price: 'R$ 135,00', img: 'Organizador com Tampa.png' },
-            { id: 26, category: 'organizacao', title: 'Fruteira', price: 'R$ 135,00', img: 'Fruteira.png' },
-            { id: 27, category: 'organizacao', title: 'Porta mantimentos bambu', price: 'R$ 50,00', img: 'porta mantimentos bambu.png' },
-            { id: 28, category: 'organizacao', title: 'Porta Utensilios', price: 'R$ 50,00', img: 'Porta Utensilios.png' },
-            { id: 29, category: 'organizacao', title: 'Jogo de 3 Cestos', price: 'R$ 50,00', img: 'Jogo de 3 Cestos.png' },
-            { id: 30, category: 'cozinha', title: 'Pegador', price: 'R$ 40,00', img: 'Pegador.png' },
-            { id: 31, category: 'cozinha', title: 'Conjunto de xícara 80ml', price: 'R$ 70,00', img: 'conjunto de xícara de 80ml.png' },
-            { id: 32, category: 'cozinha', title: 'Tapete kit de cozinha', price: 'R$ 70,00', img: 'Tapete kit de cozinha.png' },
-            { id: 33, category: 'cozinha', title: 'Aparelho de Jantar', price: 'R$ 500,00', img: 'Aparelho de Jantar.png' },
-            { id: 34, category: 'cozinha', title: 'Kit Ramequim', price: 'R$ 50,00', img: 'Kit Ramequim.png' },
-            { id: 35, category: 'cozinha', title: 'Kit Petisqueira', price: 'R$ 50,00', img: 'Kit Petisqueira.png' },
-            { id: 36, category: 'cozinha', title: 'Kit Coqueleira', price: 'R$ 70,00', img: 'Kit Coqueleira.png' },
-            { id: 37, category: 'cozinha', title: 'Conjunto de Bowls', price: 'R$ 100,00', img: 'Conjunto de Bowls.png' },
-            { id: 38, category: 'cozinha', title: 'Marinex Assadeiras', price: 'R$ 100,00', img: 'Marinex Conjunto de Assadeiras.png' },
-            { id: 39, category: 'cozinha', title: 'Conjunto de Xicaras', price: 'R$ 80,00', img: 'Conjunto de Xicaras.png' },
-            { id: 40, category: 'cozinha', title: 'Jogo de Facas', price: 'R$ 180,00', img: 'Jogo de Facas.png' },
-            { id: 41, category: 'sala', title: 'Fronha para Almofada', price: 'R$ 50,00', img: 'Fronha para Sofa.png' },
-            { id: 42, category: 'sala', title: 'Manta Para Sofa', price: 'R$ 50,00', img: 'Manta Para Sofa.png' },
-            { id: 43, category: 'sala', title: 'Kit Porta retrato', price: 'R$ 100,00', img: 'Porta retrato.png' }
-        ];
-        
-        let carrinho = [];
-        let categoriaAtual = 'todos';
-        let limiteVisivel = 6; 
-
-        // Renderização dos cards dos presentes
-        function renderProducts(categoryFilter) {
-            const grid = document.getElementById('productsGrid');
-            const counter = document.getElementById('itemsCounter');
-            if(!grid) return;
-            grid.innerHTML = '';
-
-            let filtered = categoryFilter === 'todos' ? productsData : productsData.filter(p => p.category === categoryFilter);
-            if(counter) counter.innerText = `${filtered.length} itens disponíveis`;
-
-            let exibidos;
-            if (categoryFilter === 'banheiro' || categoryFilter === 'sala') {
-                exibidos = filtered;
-            } else {
-                exibidos = filtered.slice(0, limiteVisivel);
-            }
-
-            exibidos.forEach(product => {
-                const card = document.createElement('div');
-                card.className = `product-card ${carrinho.some(c => c.id === product.id) ? 'selected' : ''}`;
-                
-                let valorLimpo = product.price.replace('R$', '').replace(/\./g, '').replace(',', '.').trim();
-                
-                card.innerHTML = `
-                    <div class="product-img-container"><img src="${product.img}" alt="${product.title}"></div>
-                    <span class="product-category">${product.category}</span>
-                    <h3 class="product-title">${product.title}</h3>
-                    <p class="product-price">${product.price}</p>
-                `;
-
-                card.addEventListener('click', () => {
-                    const index = carrinho.findIndex(c => c.id === product.id);
-                    if (index > -1) {
-                        carrinho.splice(index, 1);
-                        card.classList.remove('selected');
-                    } else {
-                        carrinho.push({ id: product.id, title: product.title, valor: parseFloat(valorLimpo) });
-                        card.classList.add('selected');
-                    }
-                    atualizarCarrinhoBar();
-                });
-
-                grid.appendChild(card);
+                atualizarCarrinhoBar();
             });
 
-            const viewMoreBtn = document.getElementById('viewMoreBtn');
-            if(viewMoreBtn) {
-                if (categoryFilter === 'banheiro' || categoryFilter === 'sala') {
-                    viewMoreBtn.style.display = 'none';
-                } else {
-                    viewMoreBtn.style.display = filtered.length > limiteVisivel ? 'block' : 'none';
-                }
+            grid.appendChild(card);
+        });
+
+        if (viewMoreBtn) {
+            viewMoreBtn.style.display =
+                !mostrarTodos && filtered.length > limiteVisivel
+                    ? 'block'
+                    : 'none';
+        }
+    }
+
+    function filterCategory(category) {
+        categoriaAtual = category;
+        limiteVisivel = 6;
+
+        document.querySelectorAll('.filter-btn').forEach(button => {
+            button.classList.remove('active');
+
+            const onclick = button.getAttribute('onclick') || '';
+            if (onclick.includes(`'${category}'`)) {
+                button.classList.add('active');
             }
+        });
+
+        renderProducts(category);
+    }
+
+    function showMoreItems() {
+        limiteVisivel = productsData.length;
+        renderProducts(categoriaAtual);
+    }
+
+    function atualizarCarrinhoBar() {
+        const bar = document.getElementById('cartBottomBar');
+        const count = document.getElementById('cartCount');
+        const totalElement = document.getElementById('cartTotal');
+
+        if (!bar || !count || !totalElement) return;
+
+        if (!carrinho.length) {
+            bar.style.display = 'none';
+            return;
         }
 
-        function filterCategory(cat) {
-            categoriaAtual = cat;
-            limiteVisivel = 6; 
-            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-            if(event && event.target) event.target.classList.add('active');
-            renderProducts(cat);
-        }
+        const total = carrinho.reduce((soma, item) => soma + item.valor, 0);
 
-        function showMoreItems() {
-            limiteVisivel = 999; 
-            renderProducts(categoriaAtual);
-        }
+        bar.style.display = 'block';
+        count.textContent =
+            `${carrinho.length} ${carrinho.length === 1 ? 'ITEM SELECIONADO' : 'ITENS SELECIONADOS'}`;
 
-        function atualizarCarrinhoBar() {
-            const bar = document.getElementById('cartBottomBar');
-            if (carrinho.length > 0) {
-                bar.style.display = 'block';
-                document.getElementById('cartCount').innerText = `${carrinho.length} ${carrinho.length === 1 ? 'ITEM SELECIONADO' : 'ITENS SELECIONADOS'}`;
-                let total = carrinho.reduce((sum, item) => sum + item.valor, 0);
-                document.getElementById('cartTotal').innerText = total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-            } else {
-                bar.style.display = 'none';
-            }
-        }
+        totalElement.textContent = total.toLocaleString('pt-BR', {
+            style: 'currency',
+            currency: 'BRL'
+        });
+    }
 
-        function openCartModal() {
-            document.getElementById('pixModal').style.display = 'flex';
-            const list = document.getElementById('modalItemsList');
-            list.innerHTML = carrinho.map(c => `<div>• ${c.title}</div>`).join('');
-            let total = carrinho.reduce((sum, item) => sum + item.valor, 0);
-            document.getElementById('modalTotalValue').innerText = `Total: ${total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`;
-        }
+    function openCartModal() {
+        const modal = document.getElementById('pixModal');
+        const lista = document.getElementById('modalItemsList');
+        const totalElement = document.getElementById('modalTotalValue');
 
-        function closeCartModal() { document.getElementById('pixModal').style.display = 'none'; }
+        if (!modal || !lista || !totalElement || !carrinho.length) return;
 
-        function copiarChavePix() {
-            const txt = document.getElementById('chavePixTexto').innerText;
-            navigator.clipboard.writeText(txt);
+        lista.innerHTML = carrinho
+            .map(item => `<div>• ${item.title}</div>`)
+            .join('');
+
+        const total = carrinho.reduce((soma, item) => soma + item.valor, 0);
+
+        totalElement.textContent = `Total: ${total.toLocaleString('pt-BR', {
+            style: 'currency',
+            currency: 'BRL'
+        })}`;
+
+        modal.style.display = 'flex';
+    }
+
+    function closeCartModal() {
+        const modal = document.getElementById('pixModal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    async function copiarChavePix() {
+        const elemento = document.getElementById('chavePixTexto');
+        if (!elemento) return;
+
+        try {
+            await navigator.clipboard.writeText(elemento.textContent.trim());
             alert('Chave Pix copiada com sucesso!');
+        } catch (erro) {
+            console.error('Erro ao copiar a chave Pix:', erro);
+            alert('Não foi possível copiar automaticamente. Selecione a chave e copie manualmente.');
+        }
+    }
+
+    function finalizarPresente() {
+        alert('Obrigado pelo carinho! Polly e Gabriel receberão a sua contribuição.');
+        carrinho = [];
+        atualizarCarrinhoBar();
+        closeCartModal();
+        renderProducts(categoriaAtual);
+    }
+
+    /* ============================================================
+       CONFIRMAÇÃO DE PRESENÇA E RASPADINHA
+       ============================================================ */
+    function updateGuestFields(quantity) {
+        const container = document.getElementById('dynamicFields');
+        if (!container) return;
+
+        container.innerHTML = '';
+
+        const totalPeople = Number.parseInt(quantity, 10) || 1;
+
+        for (let i = 2; i <= totalPeople; i++) {
+            const fieldDiv = document.createElement('div');
+            fieldDiv.className = 'rsvp-field extra-name-field';
+
+            fieldDiv.innerHTML = `
+                <label for="acompanhante_${i}">
+                    Nome do Acompanhante ${i - 1}
+                </label>
+                <input
+                    type="text"
+                    id="acompanhante_${i}"
+                    name="acompanhante_${i}"
+                    placeholder="Nome completo"
+                    required
+                >
+            `;
+
+            container.appendChild(fieldDiv);
+        }
+    }
+
+    function toggleRaspadinha(valor) {
+        const campo = document.getElementById('campoQuantidadeRaspadinha');
+        const input = document.getElementById('quantidadeRaspadinha');
+
+        if (!campo || !input) return;
+
+        if (valor === 'Sim') {
+            campo.style.display = 'block';
+            input.required = true;
+
+            if (!input.value || Number(input.value) < 1) {
+                input.value = '1';
+            }
+        } else {
+            campo.style.display = 'none';
+            input.required = false;
+            input.value = '';
         }
 
-        function finalizarPresente() {
-            alert('Obrigado pelo carinho! Polly e Gabriel receberão a sua contribuição.');
-            carrinho = [];
-            atualizarCarrinhoBar();
-            closeCartModal();
-            renderProducts(categoriaAtual);
+        atualizarValorRaspadinha();
+    }
+
+    function atualizarValorRaspadinha() {
+        const input = document.getElementById('quantidadeRaspadinha');
+        const textoValor = document.getElementById('valorRaspadinhaTexto');
+
+        if (!input || !textoValor) return;
+
+        const quantidade = Number.parseInt(input.value, 10) || 0;
+        const total = quantidade * VALOR_UNITARIO_RASPADINHA;
+
+        textoValor.textContent = `Valor total: ${total.toLocaleString('pt-BR', {
+            style: 'currency',
+            currency: 'BRL'
+        })}`;
+    }
+
+    function mostrarStatus(tipo, mensagem) {
+        const status = document.getElementById('rsvpStatus');
+        if (!status) return;
+
+        status.className = `rsvp-status ${tipo}`;
+        status.textContent = mensagem;
+        status.style.display = 'block';
+    }
+
+    function montarMensagemWhatsApp(dados, acompanhantesLista) {
+        let texto = '✨ *Confirmação de Presença no Chá de Casa Nova* ✨\n\n';
+        texto += `👤 *Nome:* ${dados.titular}\n`;
+        texto += `👥 *Total de pessoas:* ${dados.quantidade}\n`;
+
+        if (acompanhantesLista.length) {
+            texto += '\n📝 *Acompanhantes:*\n';
+
+            acompanhantesLista.forEach((nome, index) => {
+                texto += `${index + 1}. ${nome}\n`;
+            });
         }
 
-        function abrirMapa(e) { e.preventDefault(); window.open('https://www.google.com/maps/place/Palooza+Eventos+-+Sal%C3%A3o+de+festas+com+piscina/@-23.4919688,-46.4665954,17z/data=!3m1!4b1!4m16!1m9!4m8!1m0!1m6!1m2!1s0x94ce61281313dfbd:0x1017159fa7adce8f!2sPalooza+Eventos+-+Sal%C3%A3o+de+festas+com+piscina,+R.+Frei+Fid%C3%A9lis+Mota,+764+-+Parque+Cruzeiro+do+Sul,+S%C3%A3o+Paulo+-+SP,+08070-130!2m2!1d-46.4617245!2d-23.4919689!3m5!1s0x94ce61281313dfbd:0x1017159fa7adce8f!8m2!3d-23.4919689!4d-46.4617245!16s%2Fg%2F11yfk7d2dl?entry=ttu&g_ep=EgoyMDI2MDYyOC4wIKXMDSoASAFQAw%3D%3D', '_blank'); }
-        function abrirAgenda(e) { e.preventDefault(); window.open('https://calendar.google.com/calendar/render?action=TEMPLATE&text=Chá+de+Casa+Nova+-+Polly+e+Gabriel&dates=20270206T160000Z/20270207T010000Z', '_blank'); }
+        texto += `\n🎟️ *Participará da raspadinha:* ${dados.participarRaspadinha}\n`;
 
-        window.onload = () => { renderProducts('todos'); };
+        if (dados.participarRaspadinha === 'Sim') {
+            const valor = Number(dados.valorRaspadinha) || 0;
 
-    </script>
+            texto += `🔢 *Quantidade de raspadinhas:* ${dados.quantidadeRaspadinha}\n`;
+            texto += `💰 *Valor total:* ${valor.toLocaleString('pt-BR', {
+                style: 'currency',
+                currency: 'BRL'
+            })}\n`;
+        }
+
+        return texto;
+    }
+
+    async function enviarConfirmacao(event) {
+        event.preventDefault();
+
+        const formulario = document.getElementById('rsvpForm');
+        const botao = document.getElementById('rsvpSubmitBtn');
+        const campoNome = document.getElementById('nome');
+        const campoConvidados = document.getElementById('convidados');
+        const campoParticipacao = document.getElementById('participarRaspadinha');
+        const campoQuantidadeRaspadinha = document.getElementById('quantidadeRaspadinha');
+
+        if (
+            !formulario ||
+            !botao ||
+            !campoNome ||
+            !campoConvidados ||
+            !campoParticipacao
+        ) {
+            console.error('Um ou mais campos do RSVP não foram encontrados.');
+            return;
+        }
+
+        if (!formulario.reportValidity()) return;
+
+        const titular = campoNome.value.trim();
+        const quantidade = Number.parseInt(campoConvidados.value, 10) || 1;
+        const participarRaspadinha = campoParticipacao.value;
+
+        const qtdRaspadinha =
+            participarRaspadinha === 'Sim'
+                ? Number.parseInt(campoQuantidadeRaspadinha?.value, 10) || 0
+                : 0;
+
+        if (!participarRaspadinha) {
+            mostrarStatus('error', 'Informe se deseja participar da raspadinha.');
+            campoParticipacao.focus();
+            return;
+        }
+
+        if (participarRaspadinha === 'Sim' && qtdRaspadinha < 1) {
+            mostrarStatus('error', 'Informe pelo menos 1 raspadinha.');
+            campoQuantidadeRaspadinha?.focus();
+            return;
+        }
+
+        const acompanhantesLista = [];
+
+        for (let i = 2; i <= quantidade; i++) {
+            const campo = document.getElementById(`acompanhante_${i}`);
+
+            if (campo && campo.value.trim()) {
+                acompanhantesLista.push(campo.value.trim());
+            }
+        }
+
+        const dados = {
+            titular,
+            quantidade: String(quantidade),
+            acompanhantes: acompanhantesLista.length
+                ? acompanhantesLista.join(', ')
+                : 'Nenhum',
+            participarRaspadinha,
+            quantidadeRaspadinha: String(qtdRaspadinha),
+            valorRaspadinha: String(
+                qtdRaspadinha * VALOR_UNITARIO_RASPADINHA
+            )
+        };
+
+        const corpo = new URLSearchParams();
+
+        Object.entries(dados).forEach(([chave, valor]) => {
+            corpo.append(chave, valor);
+        });
+
+        const mensagemWhatsApp =
+            montarMensagemWhatsApp(dados, acompanhantesLista);
+
+        const urlWhatsApp =
+            `https://api.whatsapp.com/send?phone=${NUMERO_WHATSAPP}` +
+            `&text=${encodeURIComponent(mensagemWhatsApp)}`;
+
+        botao.disabled = true;
+        botao.textContent = 'Enviando...';
+
+        mostrarStatus('success', 'Registrando sua confirmação...');
+
+        try {
+            /*
+             * O modo no-cors é necessário porque o Google Apps Script
+             * não libera a leitura da resposta para páginas externas.
+             * Mesmo assim, o doPost é executado e grava na planilha.
+             */
+            await fetch(PLANILHA_WEBAPP_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                body: corpo,
+                keepalive: true
+            });
+
+            mostrarStatus(
+                'success',
+                'Confirmação enviada. Abrindo o WhatsApp...'
+            );
+
+            setTimeout(() => {
+                window.location.href = urlWhatsApp;
+            }, 500);
+
+        } catch (erro) {
+            console.error('Erro ao chamar o Apps Script:', erro);
+
+            mostrarStatus(
+                'error',
+                'Não foi possível enviar. Tente novamente.'
+            );
+
+            botao.disabled = false;
+            botao.textContent = 'Confirmar Presença';
+        }
+    }
+
+    /* ============================================================
+       MAPA E AGENDA
+       ============================================================ */
+    function abrirMapa(event) {
+        event?.preventDefault();
+
+        window.open(
+            'https://www.google.com/maps/place/Palooza+Eventos+-+Sal%C3%A3o+de+festas+com+piscina/@-23.4919688,-46.4665954,17z/data=!3m1!4b1!4m16!1m9!4m8!1m0!1m6!1m2!1s0x94ce61281313dfbd:0x1017159fa7adce8f!2sPalooza+Eventos+-+Sal%C3%A3o+de+festas+com+piscina,+R.+Frei+Fid%C3%A9lis+Mota,+764+-+Parque+Cruzeiro+do+Sul,+S%C3%A3o+Paulo+-+SP,+08070-130!2m2!1d-46.4617245!2d-23.4919689!3m5!1s0x94ce61281313dfbd:0x1017159fa7adce8f!8m2!3d-23.4919689!4d-46.4617245!16s%2Fg%2F11yfk7d2dl?entry=ttu',
+            '_blank',
+            'noopener,noreferrer'
+        );
+    }
+
+    function abrirAgenda(event) {
+        event?.preventDefault();
+
+        window.open(
+            'https://calendar.google.com/calendar/render?action=TEMPLATE&text=Chá+de+Casa+Nova+-+Polly+e+Gabriel&dates=20270206T150000Z/20270207T010000Z',
+            '_blank',
+            'noopener,noreferrer'
+        );
+    }
+
+    /* ============================================================
+       INICIALIZAÇÃO
+       ============================================================ */
+    document.addEventListener('DOMContentLoaded', () => {
+        renderProducts('todos');
+
+        const formulario = document.getElementById('rsvpForm');
+        const campoQuantidadeRaspadinha =
+            document.getElementById('quantidadeRaspadinha');
+
+        if (formulario) {
+            formulario.addEventListener('submit', enviarConfirmacao);
+        }
+
+        if (campoQuantidadeRaspadinha) {
+            campoQuantidadeRaspadinha.addEventListener(
+                'input',
+                atualizarValorRaspadinha
+            );
+        }
+
+        updateGuestFields(
+            document.getElementById('convidados')?.value || '1'
+        );
+
+        atualizarValorRaspadinha();
+    });
+</script>
+
+<!-- RODAPÉ -->
+<footer class="site-footer">
+    <p style="font-family: 'Alex Brush', cursive; font-size: 38px; margin-bottom: 10px;">
+        Polly & Gabriel
+    </p>
+    <p style="font-size: 10px; letter-spacing: 2px;">
+        OBRIGADO POR FAZER PARTE DA NOSSA HISTÓRIA!
+    </p>
+</footer>
+
 </body>
 </html>
+'''
+
+path = Path("/mnt/data/substituir_deste_script_ate_o_final.html")
+path.write_text(replacement, encoding="utf-8")
+print(path)
