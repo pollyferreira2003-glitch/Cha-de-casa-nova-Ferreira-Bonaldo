@@ -978,6 +978,64 @@
         const NUMERO_WHATSAPP = '5511975889141';
         const VALOR_UNITARIO_RASPADINHA = 5;
 
+        // Período permitido para confirmação, considerando o horário de São Paulo.
+        const DATA_INICIO_CONFIRMACAO = 20261101;
+        const DATA_FIM_CONFIRMACAO = 20270115;
+
+        function obterDataAtualSaoPaulo() {
+            const partes = new Intl.DateTimeFormat('pt-BR', {
+                timeZone: 'America/Sao_Paulo',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit'
+            }).formatToParts(new Date());
+
+            const valores = {};
+            partes.forEach(parte => {
+                if (parte.type !== 'literal') valores[parte.type] = parte.value;
+            });
+
+            return Number(`${valores.year}${valores.month}${valores.day}`);
+        }
+
+        function periodoConfirmacaoAberto() {
+            const hoje = obterDataAtualSaoPaulo();
+
+            return (
+                hoje >= DATA_INICIO_CONFIRMACAO &&
+                hoje <= DATA_FIM_CONFIRMACAO
+            );
+        }
+
+        function atualizarDisponibilidadeConfirmacao() {
+            const botao = document.getElementById('rsvpSubmitBtn');
+            if (!botao) return;
+
+            const hoje = obterDataAtualSaoPaulo();
+            const aberto = periodoConfirmacaoAberto();
+
+            botao.disabled = !aberto;
+
+            if (aberto) {
+                botao.textContent = 'Confirmar Presença';
+                return;
+            }
+
+            if (hoje < DATA_INICIO_CONFIRMACAO) {
+                botao.textContent = 'Confirmações a partir de 01/11/2026';
+                mostrarStatus(
+                    'error',
+                    'As confirmações de presença estarão disponíveis de 01/11/2026 até 15/01/2027.'
+                );
+            } else {
+                botao.textContent = 'Período de confirmação encerrado';
+                mostrarStatus(
+                    'error',
+                    'O período de confirmação de presença foi encerrado em 15/01/2027.'
+                );
+            }
+        }
+
         function updateGuestFields(quantity) {
             const container = document.getElementById('dynamicFields');
             container.innerHTML = '';
@@ -1060,10 +1118,17 @@ ${index + 1}. ${nome}`;
             const formulario = document.getElementById('rsvpForm');
             const botao = document.getElementById('rsvpSubmitBtn');
 
+            atualizarDisponibilidadeConfirmacao();
             quantidadeRaspadinha.addEventListener('input', atualizarValorRaspadinha);
 
             formulario.addEventListener('submit', async (event) => {
                 event.preventDefault();
+
+                // Fora do período, não envia à planilha e não abre o WhatsApp.
+                if (!periodoConfirmacaoAberto()) {
+                    atualizarDisponibilidadeConfirmacao();
+                    return;
+                }
 
                 if (!formulario.reportValidity()) return;
 
