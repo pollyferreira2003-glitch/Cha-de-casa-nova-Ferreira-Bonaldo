@@ -923,22 +923,6 @@
 
                 <div id="dynamicFields" class="dynamic-fields-container"></div>
 
-                <div class="rsvp-field">
-                    <label for="participarRaspadinha">Deseja participar da nossa raspadinha? (R$ 5,00 cada)</label>
-                    <div class="select-wrapper">
-                        <select id="participarRaspadinha" name="participarRaspadinha" onchange="toggleRaspadinha(this.value)" required>
-                            <option value="">Selecione</option>
-                            <option value="Sim">Sim, quero participar</option>
-                            <option value="Não">Não, obrigado(a)</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="rsvp-field" id="campoQuantidadeRaspadinha" style="display: none;">
-                    <label for="quantidadeRaspadinha">Quantidade de raspadinhas</label>
-                    <input type="number" id="quantidadeRaspadinha" name="quantidadeRaspadinha" min="1" step="1" placeholder="Ex.: 2">
-                    <small id="valorRaspadinhaTexto" style="display:block; margin-top:8px; color:#8c7e6c; font-size:11px;">Valor total: R$ 0,00</small>
-                </div>
 
                 <button type="submit" class="rsvp-btn" id="rsvpSubmitBtn">Confirmar Presença</button>
                 <div id="rsvpStatus" class="rsvp-status" role="status" aria-live="polite"></div>
@@ -976,7 +960,6 @@
         // URL pública da implantação do Google Apps Script. Deve terminar em /exec.
         const PLANILHA_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbz6L3QAO3uyUeEP2Witfi3n5FqNXYUM7S3rQCarGXdk6V5V_oxhXjJrzGzyEzcSSwPnxw/exec';
         const NUMERO_WHATSAPP = '5511975889141';
-        const VALOR_UNITARIO_RASPADINHA = 5;
 
         // Período permitido para confirmação, considerando o horário de São Paulo.
         const DATA_INICIO_CONFIRMACAO = 20261101;
@@ -1052,28 +1035,6 @@
             }
         }
 
-        function toggleRaspadinha(valor) {
-            const campo = document.getElementById('campoQuantidadeRaspadinha');
-            const input = document.getElementById('quantidadeRaspadinha');
-
-            if (valor === 'Sim') {
-                campo.style.display = 'block';
-                input.required = true;
-                if (!input.value || Number(input.value) < 1) input.value = '1';
-            } else {
-                campo.style.display = 'none';
-                input.required = false;
-                input.value = '';
-            }
-            atualizarValorRaspadinha();
-        }
-
-        function atualizarValorRaspadinha() {
-            const quantidade = Number.parseInt(document.getElementById('quantidadeRaspadinha').value, 10) || 0;
-            const total = quantidade * VALOR_UNITARIO_RASPADINHA;
-            document.getElementById('valorRaspadinhaTexto').textContent =
-                `Valor total: ${total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`;
-        }
 
         function mostrarStatus(tipo, mensagem) {
             const status = document.getElementById('rsvpStatus');
@@ -1101,25 +1062,14 @@ ${index + 1}. ${nome}`;
 `;
             }
 
-            texto += `
-🎟️ *Participará da raspadinha:* ${dados.participarRaspadinha}
-`;
-            if (dados.participarRaspadinha === 'Sim') {
-                texto += `🔢 *Quantidade de raspadinhas:* ${dados.quantidadeRaspadinha}
-`;
-                texto += `💰 *Valor total:* ${Number(dados.valorRaspadinha).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-`;
-            }
             return texto;
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            const quantidadeRaspadinha = document.getElementById('quantidadeRaspadinha');
             const formulario = document.getElementById('rsvpForm');
             const botao = document.getElementById('rsvpSubmitBtn');
 
             atualizarDisponibilidadeConfirmacao();
-            quantidadeRaspadinha.addEventListener('input', atualizarValorRaspadinha);
 
             formulario.addEventListener('submit', async (event) => {
                 event.preventDefault();
@@ -1134,16 +1084,6 @@ ${index + 1}. ${nome}`;
 
                 const titular = document.getElementById('nome').value.trim();
                 const quantidade = Number.parseInt(document.getElementById('convidados').value, 10) || 1;
-                const participarRaspadinha = document.getElementById('participarRaspadinha').value;
-                const qtdRaspadinha = participarRaspadinha === 'Sim'
-                    ? Number.parseInt(quantidadeRaspadinha.value, 10) || 0
-                    : 0;
-
-                if (participarRaspadinha === 'Sim' && qtdRaspadinha < 1) {
-                    mostrarStatus('error', 'Informe pelo menos 1 raspadinha.');
-                    quantidadeRaspadinha.focus();
-                    return;
-                }
 
                 const acompanhantesLista = [];
                 for (let i = 2; i <= quantidade; i++) {
@@ -1155,9 +1095,6 @@ ${index + 1}. ${nome}`;
                     titular,
                     quantidade: String(quantidade),
                     acompanhantes: acompanhantesLista.length ? acompanhantesLista.join(', ') : 'Nenhum',
-                    participarRaspadinha,
-                    quantidadeRaspadinha: String(qtdRaspadinha),
-                    valorRaspadinha: String(qtdRaspadinha * VALOR_UNITARIO_RASPADINHA)
                 };
 
                 const corpo = new URLSearchParams(dados);
